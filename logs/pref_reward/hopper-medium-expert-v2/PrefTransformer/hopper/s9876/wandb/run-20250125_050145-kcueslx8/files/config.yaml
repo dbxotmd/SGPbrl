@@ -1,0 +1,284 @@
+wandb_version: 1
+
+env:
+  desc: null
+  value: hopper-medium-expert-v2
+model_type:
+  desc: null
+  value: PrefTransformer
+max_traj_length:
+  desc: null
+  value: 1000
+seed:
+  desc: null
+  value: 9876
+data_seed:
+  desc: null
+  value: 42
+save_model:
+  desc: null
+  value: true
+batch_size:
+  desc: null
+  value: 256
+early_stop:
+  desc: null
+  value: false
+min_delta:
+  desc: null
+  value: 0.001
+patience:
+  desc: null
+  value: 10
+reward_scale:
+  desc: null
+  value: 1.0
+reward_bias:
+  desc: null
+  value: 0.0
+clip_action:
+  desc: null
+  value: 0.999
+reward_arch:
+  desc: null
+  value: 256-256
+orthogonal_init:
+  desc: null
+  value: false
+activations:
+  desc: null
+  value: relu
+activation_final:
+  desc: null
+  value: none
+training:
+  desc: null
+  value: true
+n_epochs:
+  desc: null
+  value: 10000
+eval_period:
+  desc: null
+  value: 5
+data_dir:
+  desc: null
+  value: ./human_label
+num_query:
+  desc: null
+  value: 100
+query_len:
+  desc: null
+  value: 100
+skip_flag:
+  desc: null
+  value: 0
+balance:
+  desc: null
+  value: false
+topk:
+  desc: null
+  value: 10
+window:
+  desc: null
+  value: 2
+use_human_label:
+  desc: null
+  value: true
+feedback_random:
+  desc: null
+  value: false
+feedback_uniform:
+  desc: null
+  value: false
+enable_bootstrap:
+  desc: null
+  value: false
+comment:
+  desc: null
+  value: hopper
+robosuite:
+  desc: null
+  value: false
+robosuite_dataset_type:
+  desc: null
+  value: ph
+robosuite_dataset_path:
+  desc: null
+  value: ./data
+robosuite_max_episode_steps:
+  desc: null
+  value: 500
+reward.optimizer_type:
+  desc: null
+  value: adam
+reward.rf_lr:
+  desc: null
+  value: 0.0003
+transformer.attn_pdrop:
+  desc: null
+  value: 0.1
+transformer.embd_dim:
+  desc: null
+  value: 256
+transformer.n_embd:
+  desc: null
+  value: 256
+transformer.n_head:
+  desc: null
+  value: 1
+transformer.n_layer:
+  desc: null
+  value: 3
+transformer.n_positions:
+  desc: null
+  value: 1024
+transformer.optimizer_type:
+  desc: null
+  value: adamw
+transformer.pref_attn_embd_dim:
+  desc: null
+  value: 256
+transformer.resid_pdrop:
+  desc: null
+  value: 0.1
+transformer.scheduler_type:
+  desc: null
+  value: CosineDecay
+transformer.train_type:
+  desc: null
+  value: mean
+transformer.trans_lr:
+  desc: null
+  value: 0.0001
+transformer.use_weighted_sum:
+  desc: null
+  value: false
+transformer.vocab_size:
+  desc: null
+  value: 1
+lstm.attn_pdrop:
+  desc: null
+  value: 0.1
+lstm.embd_dim:
+  desc: null
+  value: 256
+lstm.explicit_sparse:
+  desc: null
+  value: false
+lstm.k:
+  desc: null
+  value: 5
+lstm.lambda_kld:
+  desc: null
+  value: 0.1
+lstm.lstm_lr:
+  desc: null
+  value: 0.001
+lstm.n_embd:
+  desc: null
+  value: 256
+lstm.n_head:
+  desc: null
+  value: 1
+lstm.n_inner:
+  desc: null
+  value: 128
+lstm.n_layer:
+  desc: null
+  value: 3
+lstm.n_positions:
+  desc: null
+  value: 1024
+lstm.optimizer_type:
+  desc: null
+  value: adam
+lstm.resid_pdrop:
+  desc: null
+  value: 0.1
+lstm.scheduler_type:
+  desc: null
+  value: none
+lstm.softmax_temperature:
+  desc: null
+  value: 5
+lstm.train_diff_bool:
+  desc: null
+  value: false
+lstm.train_type:
+  desc: null
+  value: sum
+lstm.use_kld:
+  desc: null
+  value: false
+lstm.vocab_size:
+  desc: null
+  value: 1
+logging.anonymous:
+  desc: null
+  value: null
+logging.experiment_id:
+  desc: null
+  value: null
+logging.group:
+  desc: null
+  value: null
+logging.notes:
+  desc: null
+  value: null
+logging.online:
+  desc: null
+  value: true
+logging.output_dir:
+  desc: null
+  value: ./logs/pref_reward
+logging.prefix:
+  desc: null
+  value: ''
+logging.project:
+  desc: null
+  value: PrefRL
+logging.random_delay:
+  desc: null
+  value: 0.0
+hostname:
+  desc: null
+  value: dm88
+_wandb:
+  desc: null
+  value:
+    python_version: 3.9.20
+    cli_version: 0.16.4
+    framework: huggingface
+    huggingface_version: 4.39.1
+    is_jupyter_run: false
+    is_kaggle_kernel: false
+    start_time: 1737748905.0
+    t:
+      1:
+      - 1
+      - 2
+      - 3
+      - 11
+      - 12
+      - 45
+      - 49
+      - 55
+      2:
+      - 1
+      - 2
+      - 3
+      - 11
+      - 12
+      - 45
+      - 49
+      - 55
+      3:
+      - 13
+      - 16
+      - 23
+      4: 3.9.20
+      5: 0.16.4
+      6: 4.39.1
+      8:
+      - 8
+      13: linux-x86_64

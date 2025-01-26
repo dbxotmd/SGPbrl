@@ -1,0 +1,28 @@
+2025-01-25 05:01:45,554 INFO    MainThread:71531 [wandb_setup.py:_flush():76] Current SDK version is 0.16.4
+2025-01-25 05:01:45,555 INFO    MainThread:71531 [wandb_setup.py:_flush():76] Configure stats pid to 71531
+2025-01-25 05:01:45,555 INFO    MainThread:71531 [wandb_setup.py:_flush():76] Loading settings from /home/taeseung/.config/wandb/settings
+2025-01-25 05:01:45,555 INFO    MainThread:71531 [wandb_setup.py:_flush():76] Loading settings from /home/taeseung/test/PreferenceTransformer/wandb/settings
+2025-01-25 05:01:45,555 INFO    MainThread:71531 [wandb_setup.py:_flush():76] Loading settings from environment variables: {}
+2025-01-25 05:01:45,555 INFO    MainThread:71531 [wandb_setup.py:_flush():76] Applying setup settings: {'_disable_service': False}
+2025-01-25 05:01:45,555 WARNING MainThread:71531 [wandb_setup.py:_flush():76] Could not find program at -m JaxPref.new_preference_reward_main
+2025-01-25 05:01:45,555 INFO    MainThread:71531 [wandb_setup.py:_flush():76] Inferring run settings from compute environment: {'program_relpath': None, 'program': '-m JaxPref.new_preference_reward_main'}
+2025-01-25 05:01:45,555 INFO    MainThread:71531 [wandb_init.py:_log_setup():526] Logging user logs to ./logs/pref_reward/hopper-medium-expert-v2/PrefTransformer/hopper/s9876/wandb/run-20250125_050145-kcueslx8/logs/debug.log
+2025-01-25 05:01:45,555 INFO    MainThread:71531 [wandb_init.py:_log_setup():527] Logging internal logs to ./logs/pref_reward/hopper-medium-expert-v2/PrefTransformer/hopper/s9876/wandb/run-20250125_050145-kcueslx8/logs/debug-internal.log
+2025-01-25 05:01:45,556 INFO    MainThread:71531 [wandb_init.py:init():566] calling init triggers
+2025-01-25 05:01:45,556 INFO    MainThread:71531 [wandb_init.py:init():573] wandb.init called with sweep_config: {}
+config: {'env': 'hopper-medium-expert-v2', 'model_type': 'PrefTransformer', 'max_traj_length': 1000, 'seed': 9876, 'data_seed': 42, 'save_model': True, 'batch_size': 256, 'early_stop': False, 'min_delta': 0.001, 'patience': 10, 'reward_scale': 1.0, 'reward_bias': 0.0, 'clip_action': 0.999, 'reward_arch': '256-256', 'orthogonal_init': False, 'activations': 'relu', 'activation_final': 'none', 'training': True, 'n_epochs': 10000, 'eval_period': 5, 'data_dir': './human_label', 'num_query': 100, 'query_len': 100, 'skip_flag': 0, 'balance': False, 'topk': 10, 'window': 2, 'use_human_label': True, 'feedback_random': False, 'feedback_uniform': False, 'enable_bootstrap': False, 'comment': 'hopper', 'robosuite': False, 'robosuite_dataset_type': 'ph', 'robosuite_dataset_path': './data', 'robosuite_max_episode_steps': 500, 'reward.optimizer_type': 'adam', 'reward.rf_lr': 0.0003, 'transformer.attn_pdrop': 0.1, 'transformer.embd_dim': 256, 'transformer.n_embd': 256, 'transformer.n_head': 1, 'transformer.n_layer': 3, 'transformer.n_positions': 1024, 'transformer.optimizer_type': 'adamw', 'transformer.pref_attn_embd_dim': 256, 'transformer.resid_pdrop': 0.1, 'transformer.scheduler_type': 'CosineDecay', 'transformer.train_type': 'mean', 'transformer.trans_lr': 0.0001, 'transformer.use_weighted_sum': False, 'transformer.vocab_size': 1, 'lstm.attn_pdrop': 0.1, 'lstm.embd_dim': 256, 'lstm.explicit_sparse': False, 'lstm.k': 5, 'lstm.lambda_kld': 0.1, 'lstm.lstm_lr': 0.001, 'lstm.n_embd': 256, 'lstm.n_head': 1, 'lstm.n_inner': 128, 'lstm.n_layer': 3, 'lstm.n_positions': 1024, 'lstm.optimizer_type': 'adam', 'lstm.resid_pdrop': 0.1, 'lstm.scheduler_type': 'none', 'lstm.softmax_temperature': 5, 'lstm.train_diff_bool': False, 'lstm.train_type': 'sum', 'lstm.use_kld': False, 'lstm.vocab_size': 1, 'logging.anonymous': None, 'logging.experiment_id': None, 'logging.group': None, 'logging.notes': None, 'logging.online': True, 'logging.output_dir': './logs/pref_reward', 'logging.prefix': '', 'logging.project': 'PrefRL', 'logging.random_delay': 0.0, 'hostname': 'dm88'}
+2025-01-25 05:01:45,556 INFO    MainThread:71531 [wandb_init.py:init():616] starting backend
+2025-01-25 05:01:45,556 INFO    MainThread:71531 [wandb_init.py:init():620] setting up manager
+2025-01-25 05:01:45,560 INFO    MainThread:71531 [wandb_init.py:init():628] backend started and connected
+2025-01-25 05:01:45,576 INFO    MainThread:71531 [wandb_init.py:init():720] updated telemetry
+2025-01-25 05:01:45,627 INFO    MainThread:71531 [wandb_init.py:init():753] communicating run to backend with 90.0 second timeout
+2025-01-25 05:01:46,238 INFO    MainThread:71531 [wandb_run.py:_on_init():2262] communicating current version
+2025-01-25 05:01:46,337 INFO    MainThread:71531 [wandb_run.py:_on_init():2271] got version response upgrade_message: "wandb version 0.19.4 is available!  To upgrade, please run:\n $ pip install wandb --upgrade"
+
+2025-01-25 05:01:46,337 INFO    MainThread:71531 [wandb_init.py:init():804] starting run threads in backend
+2025-01-25 05:01:54,279 INFO    MainThread:71531 [wandb_run.py:_console_start():2241] atexit reg
+2025-01-25 05:01:54,279 INFO    MainThread:71531 [wandb_run.py:_redirect():2096] redirect: wrap_raw
+2025-01-25 05:01:54,279 INFO    MainThread:71531 [wandb_run.py:_redirect():2161] Wrapping output streams.
+2025-01-25 05:01:54,279 INFO    MainThread:71531 [wandb_run.py:_redirect():2186] Redirects installed.
+2025-01-25 05:01:54,280 INFO    MainThread:71531 [wandb_init.py:init():847] run started, returning control to user process
+2025-01-25 05:32:59,077 WARNING MsgRouterThr:71531 [router.py:message_loop():77] message_loop has been closed

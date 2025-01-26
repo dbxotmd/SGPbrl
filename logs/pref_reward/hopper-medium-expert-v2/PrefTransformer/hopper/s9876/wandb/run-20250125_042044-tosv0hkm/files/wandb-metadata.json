@@ -1,0 +1,270 @@
+{
+    "os": "Linux-6.8.0-51-generic-x86_64-with-glibc2.35",
+    "python": "3.9.20",
+    "heartbeatAt": "2025-01-24T19:20:45.543414",
+    "startedAt": "2025-01-24T19:20:44.704475",
+    "docker": null,
+    "cuda": null,
+    "args": [
+        "--use_human_label",
+        "True",
+        "--comment",
+        "hopper",
+        "--transformer.embd_dim",
+        "256",
+        "--transformer.n_layer",
+        "1",
+        "--transformer.n_head",
+        "4",
+        "--env",
+        "hopper-medium-expert-v2",
+        "--logging.output_dir",
+        "./logs/pref_reward",
+        "--batch_size",
+        "256",
+        "--num_query",
+        "100",
+        "--query_len",
+        "100",
+        "--n_epochs",
+        "10000",
+        "--skip_flag",
+        "0",
+        "--seed",
+        "9876",
+        "--model_type",
+        "PrefTransformer"
+    ],
+    "state": "running",
+    "program": "-m JaxPref.new_preference_reward_main",
+    "codePathLocal": null,
+    "git": {
+        "remote": "https://github.com/csmile-1006/PreferenceTransformer.git",
+        "commit": "f71647bb075c8287e2f26aded78aa8f1ac176eb5"
+    },
+    "email": "luca0621@naver.com",
+    "root": "/home/taeseung/test/PreferenceTransformer",
+    "host": "dm88",
+    "username": "taeseung",
+    "executable": "/home/taeseung/miniconda3/envs/test/bin/python",
+    "cpu_count": 20,
+    "cpu_count_logical": 40,
+    "cpu_freq": {
+        "current": 1304.6318500000002,
+        "min": 1200.0,
+        "max": 3100.0
+    },
+    "cpu_freq_per_core": [
+        {
+            "current": 1198.046,
+            "min": 1200.0,
+            "max": 3100.0
+        },
+        {
+            "current": 1200.0,
+            "min": 1200.0,
+            "max": 3100.0
+        },
+        {
+            "current": 1197.557,
+            "min": 1200.0,
+            "max": 3100.0
+        },
+        {
+            "current": 1200.0,
+            "min": 1200.0,
+            "max": 3100.0
+        },
+        {
+            "current": 1200.0,
+            "min": 1200.0,
+            "max": 3100.0
+        },
+        {
+            "current": 1200.0,
+            "min": 1200.0,
+            "max": 3100.0
+        },
+        {
+            "current": 1200.0,
+            "min": 1200.0,
+            "max": 3100.0
+        },
+        {
+            "current": 1200.0,
+            "min": 1200.0,
+            "max": 3100.0
+        },
+        {
+            "current": 1197.908,
+            "min": 1200.0,
+            "max": 3100.0
+        },
+        {
+            "current": 1200.0,
+            "min": 1200.0,
+            "max": 3100.0
+        },
+        {
+            "current": 1200.0,
+            "min": 1200.0,
+            "max": 3100.0
+        },
+        {
+            "current": 1200.0,
+            "min": 1200.0,
+            "max": 3100.0
+        },
+        {
+            "current": 3100.0,
+            "min": 1200.0,
+            "max": 3100.0
+        },
+        {
+            "current": 1200.0,
+            "min": 1200.0,
+            "max": 3100.0
+        },
+        {
+            "current": 1200.0,
+            "min": 1200.0,
+            "max": 3100.0
+        },
+        {
+            "current": 1200.0,
+            "min": 1200.0,
+            "max": 3100.0
+        },
+        {
+            "current": 1200.0,
+            "min": 1200.0,
+            "max": 3100.0
+        },
+        {
+            "current": 1200.0,
+            "min": 1200.0,
+            "max": 3100.0
+        },
+        {
+            "current": 1600.0,
+            "min": 1200.0,
+            "max": 3100.0
+        },
+        {
+            "current": 1200.0,
+            "min": 1200.0,
+            "max": 3100.0
+        },
+        {
+            "current": 1200.0,
+            "min": 1200.0,
+            "max": 3100.0
+        },
+        {
+            "current": 1197.378,
+            "min": 1200.0,
+            "max": 3100.0
+        },
+        {
+            "current": 1200.0,
+            "min": 1200.0,
+            "max": 3100.0
+        },
+        {
+            "current": 1200.0,
+            "min": 1200.0,
+            "max": 3100.0
+        },
+        {
+            "current": 1460.878,
+            "min": 1200.0,
+            "max": 3100.0
+        },
+        {
+            "current": 1200.0,
+            "min": 1200.0,
+            "max": 3100.0
+        },
+        {
+            "current": 1197.434,
+            "min": 1200.0,
+            "max": 3100.0
+        },
+        {
+            "current": 1197.518,
+            "min": 1200.0,
+            "max": 3100.0
+        },
+        {
+            "current": 1197.415,
+            "min": 1200.0,
+            "max": 3100.0
+        },
+        {
+            "current": 3100.0,
+            "min": 1200.0,
+            "max": 3100.0
+        },
+        {
+            "current": 1200.0,
+            "min": 1200.0,
+            "max": 3100.0
+        },
+        {
+            "current": 1200.0,
+            "min": 1200.0,
+            "max": 3100.0
+        },
+        {
+            "current": 1200.0,
+            "min": 1200.0,
+            "max": 3100.0
+        },
+        {
+            "current": 1200.0,
+            "min": 1200.0,
+            "max": 3100.0
+        },
+        {
+            "current": 1200.0,
+            "min": 1200.0,
+            "max": 3100.0
+        },
+        {
+            "current": 1200.0,
+            "min": 1200.0,
+            "max": 3100.0
+        },
+        {
+            "current": 1200.0,
+            "min": 1200.0,
+            "max": 3100.0
+        },
+        {
+            "current": 1200.0,
+            "min": 1200.0,
+            "max": 3100.0
+        },
+        {
+            "current": 1200.0,
+            "min": 1200.0,
+            "max": 3100.0
+        },
+        {
+            "current": 1200.0,
+            "min": 1200.0,
+            "max": 3100.0
+        }
+    ],
+    "disk": {
+        "/": {
+            "total": 915.3232879638672,
+            "used": 795.489330291748
+        }
+    },
+    "gpu": "NVIDIA GeForce GTX 1080 Ti",
+    "gpu_count": 4,
+    "memory": {
+        "total": 125.76723861694336
+    }
+}
