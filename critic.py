@@ -92,6 +92,7 @@ def update_q(
     # change this one to -1~1
     shaping_term = jnp.mean((similarity + 1) / 2)
     # cos_term = jnp.mean((similarity + 1) / 2)
+    # shaping_term = ((similarity + 1) / 2)
 
     # MSE
     # shaping_term = jnp.mean((reconstructed_subgoals - batch.next_observations) ** 2)

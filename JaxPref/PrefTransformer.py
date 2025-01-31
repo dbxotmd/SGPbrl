@@ -222,7 +222,7 @@ class PrefTransformer(object):
         }
 
     def save_vae_model(self, env_name):
-        filename = f"subgoal_vae_{env_name}_9876.pkl"
+        filename = f"subgoal_vae_{env_name}.pkl"
         with open(filename, "wb") as f:
             pickle.dump(self.vae_state.params, f)
         print(f"VAE params (PyTree) saved to {filename}")

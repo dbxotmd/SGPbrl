@@ -338,7 +338,6 @@ def main(_):
                     (j + 1) * FLAGS.batch_size,
                     pref_eval_dataset["observations"].shape[0],
                 )
-                # batch_eval = batch_to_jax(index_batch(pref_eval_dataset, range(eval_start_pt, eval_end_pt)))
                 batch_eval = batch_to_jax(
                     index_batch(pref_eval_dataset, range(eval_start_pt, eval_end_pt))
                 )

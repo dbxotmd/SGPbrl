@@ -163,8 +163,10 @@ class Learner(object):
         self.vae_latent_dim = 16
         self.vae_hidden_dim = [32, 64, 32]
         self.vae_state = load_vae_model(
-            "subgoal_vae_Lift_ph_42.pkl",
-            # "subgoal_vae_walker2d-medium-replay-v2_9876.pkl",
+            "subgoal_vae_walker2d-medium-replay-v2_q_10_0.pkl",
+            # "subgoal_vae_hopper-medium-expert-v2_1234.pkl",
+            # "subgoal_vae_Lift_ph_42.pkl",
+            # "subgoal_vae_walker2d-medium-replay-v2_1234.pkl",
             # "subgoal_vae_walker2d-medium-expert-v2_9876.pkl",
             # "subgoal_vae_walker2d-medium-replay-v2_cos.pkl",
             observation_dim,
