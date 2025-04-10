@@ -9,11 +9,9 @@ Our model is built upon the Preference Transformer framework. Therefore, by runn
 ## Table of Contents
 - [Installation](#installation)
 - [How to Run the Code](#how-to-run-the-code)
-  - [D4RL](#d4rl)
+  - [SPOT](#SPOT-reward-shifting)
     - [Run Training Reward Model](#run-training-reward-model)
-      - [SPOT](#SPOT-reward-shifting)
-    - [Run IQL with Learned Reward Model](#run-iql-with-learned-reward-model)
-      - [SPOT](#SPOT-reward-shifting)
+    - [Run IQL with Learned Reward Model & Reward Shifting](#run-iql-with-learned-reward-model-&-Reward-Shifting)
 - [Acknowledgments](#acknowledgments)
 
 ## Installation
@@ -60,7 +58,7 @@ Follow the steps below to set up the environment and install the necessary depen
 
 ## How to Run the Code
 
-### D4RL
+### D4RL , ROBOMIMIC 
 
 #### Run Training Reward Model
 
@@ -84,7 +82,7 @@ CUDA_VISIBLE_DEVICES=0 python -m JaxPref.new_preference_reward_main \
 ```
 ### After running the above command, insert the path to subgoal_vae_{env_name}.pkl into the Learner class within learner.py.
 
-### Run IQL with Learned Reward Model
+### Run IQL with Learned Reward Model & Reward Shifting
 ```bash
 CUDA_VISIBLE_DEVICES=0 python train_offline.py \
     --seq_len {sequence_length_in_reward_prediction} \
