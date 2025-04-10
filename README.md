@@ -2,17 +2,18 @@
 
 ## Subgoal-Guided Reward Shaping: Improving Preference-Based Offline Reinforcement Learning via Conditional VAEs
 
-## NOTICE
-We implement our code based on [Preference Transformer](https://github.com/csmile-1006/PreferenceTransformer). 
-Our model is built upon the Preference Transformer framework. Therefore, by running the Preference Transformer, you can obtain our results.
+We implement our code based on [Preference Transformer](https://github.com/csmile-1006/PreferenceTransformer).  
+Our model is built upon the **Preference Transformer** framework. Therefore, by running the Preference Transformer, you can obtain our results.
 
 ## Table of Contents
 - [Installation](#installation)
 - [How to Run the Code](#how-to-run-the-code)
-  - [SPOT](#SPOT-reward-shifting)
+  - [SPOT](#spot)
     - [Run Training Reward Model](#run-training-reward-model)
-    - [Run IQL with Learned Reward Model & Reward Shifting](#run-iql-with-learned-reward-model-&-Reward-Shifting)
+    - [Run IQL with Learned Reward Model & Reward Shifting](#run-iql-with-learned-reward-model--reward-shifting)
 - [Acknowledgments](#acknowledgments)
+
+---
 
 ## Installation
 
@@ -56,13 +57,14 @@ Follow the steps below to set up the environment and install the necessary depen
     pip install protobuf==3.20.1 gym<0.24.0 distrax==0.1.2 wandb transformers
     ```
 
+---
+
 ## How to Run the Code
 
-### D4RL , ROBOMIMIC 
+### SPOT
 
 #### Run Training Reward Model
 
-##### SPOT
 ```bash
 CUDA_VISIBLE_DEVICES=0 python -m JaxPref.new_preference_reward_main \
     --use_human_label True \
@@ -80,6 +82,7 @@ CUDA_VISIBLE_DEVICES=0 python -m JaxPref.new_preference_reward_main \
     --seed {seed} \
     --model_type PrefTransformer
 ```
+
 ### After running the above command, insert the path to subgoal_vae_{env_name}.pkl into the Learner class within learner.py.
 
 ### Run IQL with Learned Reward Model & Reward Shifting
