@@ -11,9 +11,9 @@ Our model is built upon the Preference Transformer framework. Therefore, by runn
 - [How to Run the Code](#how-to-run-the-code)
   - [D4RL](#d4rl)
     - [Run Training Reward Model](#run-training-reward-model)
-      - [Preference Transformer (PT)](#preference-transformer-pt)
+      - [SPOT](#SPOT-reward-shifting)
     - [Run IQL with Learned Reward Model](#run-iql-with-learned-reward-model)
-      - [Preference Transformer (PT)](#preference-transformer-pt-1)
+      - [SPOT](#SPOT-reward-shifting)
 - [Acknowledgments](#acknowledgments)
 
 ## Installation
