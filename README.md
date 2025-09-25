@@ -1,6 +1,6 @@
 # SGPbrl
 
-## Subgoal-Guided Reward Shaping: Improving Preference-Based Offline Reinforcement Learning via Conditional VAEs
+## MITIGATING REWARD EXTRAPOLATION ERRORS IN OFFLINE PREFERENCE-BASED RL VIA ATTENTION-GUIDED SUBGOAL DISCOVERY
 
 We implement our code based on [Preference Transformer](https://github.com/csmile-1006/PreferenceTransformer).  
 Our model is built upon the **Preference Transformer** framework. Therefore, by running the Preference Transformer, you can obtain our results.
@@ -80,10 +80,14 @@ CUDA_VISIBLE_DEVICES=0 python -m JaxPref.new_preference_reward_main \
     --n_epochs 10000 \
     --skip_flag 0 \
     --seed {seed} \
-    --model_type PrefTransformer
+    --model_type PrefTransformer \
+    --latent_dim {CVAE_latent_dim} \
+    --hidden_dim {CVAE_hidden_dim} \
+    --state_action=${state_action} \
+    --topkp ${top_k_percentil} 
 ```
 
-### After running the above command, insert the path to subgoal_vae_{env_name}.pkl into the Learner class within learner.py.
+### After running the above command, insert the path to subgoal_vae_{env_name}.pkl into the Learner class within learner.py
 
 ### Run IQL with Learned Reward Model & Reward Shifting
 ```bash
@@ -98,7 +102,13 @@ CUDA_VISIBLE_DEVICES=0 python train_offline.py \
     --model_type PrefTransformer \
     --ckpt_dir {reward_model_path} \
     --seed {seed}
+    --latent_dim {CVAE_latent_dim} \
+    --hidden_dim {CVAE_hidden_dim} \
+    --state_action=${state_action} \
+    --topkp ${top_k_percentil} 
 ```
+### You can utilize the bash file to run the experiments.
+
 
 ## Acknowledgments
 we implement our code based on [Preference Transformer](https://github.com/csmile-1006/PreferenceTransformer). 
