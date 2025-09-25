@@ -137,18 +137,36 @@ class MetaworldDataset(Dataset):
         dones_float = np.zeros_like(dataset["rewards"])
 
         for i in range(len(dones_float) - 1):
-            if (
-                np.linalg.norm(
-                    dataset["observations"][i + 1] - dataset["next_observations"][i]
-                )
-                > 1e-5
-                or dataset["terminals"][i] == 1.0
-            ):
+            mismatch = np.linalg.norm(
+                dataset["observations"][i + 1] - dataset["next_observations"][i]
+            ) > 1e-5
+
+            # terminals[i]가 (1,) 배열일 수도 있음 → 스칼라로 변환
+            term_i = np.asarray(dataset["terminals"][i]).squeeze()
+            if term_i.shape != ():  # 여전히 배열이면 any() 사용
+                term_flag = np.any(term_i > 0.5)
+            else:
+                term_flag = bool(term_i > 0.5)
+
+            if mismatch or term_flag:
                 dones_float[i] = 1.0
             else:
                 dones_float[i] = 0.0
 
+        # 보통 마지막 스텝은 에피소드 종료로 처리 (필요 시)
         dones_float[-1] = 1.0
+        #     if (
+        #         np.linalg.norm(
+        #             dataset["observations"][i + 1] - dataset["next_observations"][i]
+        #         )
+        #         > 1e-5
+        #         or dataset["terminals"][i] == 1.0
+        #     ):
+        #         dones_float[i] = 1.0
+        #     else:
+        #         dones_float[i] = 0.0
+
+        # dones_float[-1] = 1.0
 
         super().__init__(
             dataset["observations"].astype(np.float32),

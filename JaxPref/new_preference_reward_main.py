@@ -70,6 +70,10 @@ FLAGS_DEF = define_flags_with_default(
     balance=False,
     topk=10,
     window=2,
+    latent_dim =16,
+    hidden_dim =32,
+    topkp =10,
+    state_action=True,
     use_human_label=False,
     feedback_random=False,
     feedback_uniform=False,
@@ -99,7 +103,9 @@ def main(_):
     FLAGS.logging.group += f"_{FLAGS.comment}"
     FLAGS.logging.experiment_id = FLAGS.logging.group + f"_s{FLAGS.seed}"
     save_dir += f"{FLAGS.comment}" + "/"
-    save_dir += "s" + str(FLAGS.seed)
+    save_dir += "s" + str(FLAGS.seed) +"/"
+    save_dir +=  str(FLAGS.latent_dim)+"_"+str(FLAGS.hidden_dim)+"_"+str(FLAGS.topkp)+"_"+str(FLAGS.state_action)
+    print("state-action Ture or False",FLAGS.state_action)
 
     setup_logger(
         variant=variant,
@@ -273,6 +279,11 @@ def main(_):
         config = transformers.GPT2Config(**FLAGS.transformer)
         config.warmup_steps = int(total_epochs * 0.1 * interval)
         config.total_steps = total_epochs * interval
+        config.seed = FLAGS.seed
+        config.latent_dim = FLAGS.latent_dim
+        config.hidden_dim = FLAGS.hidden_dim
+        config.topkp = FLAGS.topkp
+        config.state_action =  FLAGS.state_action
 
         trans = TransRewardModel(
             config=config,

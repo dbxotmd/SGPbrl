@@ -59,12 +59,16 @@ FLAGS_DEF = define_flags_with_default(
     n_epochs=2000,
     eval_period=5,
     data_dir="./human_label",
-    num_query=500,
+    num_query=4000,
     query_len=25,
     skip_flag=0,
     balance=False,
     topk=10,
     window=2,
+    latent_dim =16,
+    hidden_dim =32,
+    topkp =10,
+    state_action=True,
     use_human_label=False,
     feedback_random=False,
     feedback_uniform=False,
@@ -150,7 +154,7 @@ def load_metaworld_dataset(file_path):
         "labels": one_hot_labels,  # Shape: (N,)
     }
     total_size = dataset["observations"].shape[0]
-    random_indices = np.random.choice(total_size, size=500, replace=False)
+    random_indices = np.random.choice(total_size, size=4000, replace=False)
 
     dataset = {
         k: v[random_indices] if isinstance(v, np.ndarray) else v
@@ -192,6 +196,8 @@ def main(_):
         FLAGS.comment,
         f"s{FLAGS.seed}",
     )
+    save_dir +=  str(FLAGS.latent_dim)+"_"+str(FLAGS.hidden_dim)+"_"+str(FLAGS.topkp)+"_"+str(FLAGS.state_action)
+
     setup_logger(
         variant=variant,
         seed=FLAGS.seed,
@@ -205,7 +211,10 @@ def main(_):
     set_random_seed(FLAGS.seed)
 
     # Load MetaWorld dataset
-    dataset = load_metaworld_dataset("./human_label/drawer-open_10000.npz")
+    if "drawer" in FLAGS.env:
+        dataset = load_metaworld_dataset("./human_label/drawer-open_10000.npz")
+    else:
+        dataset = load_metaworld_dataset("./human_label/plate-slide_10000.npz")
     pref_dataset = {}
     pref_eval_dataset = {}
 
@@ -254,6 +263,11 @@ def main(_):
         config = transformers.GPT2Config(**FLAGS.transformer)
         config.warmup_steps = int(total_epochs * 0.1 * interval)
         config.total_steps = total_epochs * interval
+        config.seed = FLAGS.seed
+        config.latent_dim = FLAGS.latent_dim
+        config.hidden_dim = FLAGS.hidden_dim
+        config.topkp = FLAGS.topkp
+        config.state_action =  FLAGS.state_action
 
         trans = TransRewardModel(
             config=config,

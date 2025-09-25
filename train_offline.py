@@ -40,6 +40,12 @@ flags.DEFINE_string('comment',
 flags.DEFINE_integer('seq_len', 25, 'sequence length for relabeling reward in Transformer.')
 flags.DEFINE_bool('use_diff', False, 'boolean whether use difference in sequence for reward relabeling.')
 flags.DEFINE_string('label_mode', 'last', 'mode for relabeling reward with tranformer.')
+flags.DEFINE_string('method', 'negative_distance', 'Reward shaping method')
+flags.DEFINE_float('shaping_weight', 1.0, 'Logging interval.')
+flags.DEFINE_integer('latent_dim', 16, 'latent dimension for CVAE')
+flags.DEFINE_integer('hidden_dim', 32, 'hidden dimension for CVAE')
+flags.DEFINE_integer('topkp', 10, 'top k percenetage for CVAE')
+flags.DEFINE_boolean('state_action', True, 'Use only state or state-action pair for reward shaping')
 
 config_flags.DEFINE_config_file(
     'config',
@@ -102,6 +108,15 @@ def make_env_and_dataset(env_name: str,
         if FLAGS.model_type == "MR":
             dataset = reward_from_preference(FLAGS.env_name, dataset, reward_model, batch_size=FLAGS.batch_size)
         else:
+            # dataset = reward_from_preference_transformer(
+            #     FLAGS.env_name,
+            #     dataset,
+            #     reward_model,
+            #     batch_size=FLAGS.batch_size,
+            #     seq_len=FLAGS.seq_len,
+            #     use_diff=FLAGS.use_diff,
+            #     label_mode=FLAGS.label_mode
+            # )
             dataset = reward_from_preference_transformer(
                 FLAGS.env_name,
                 dataset,
@@ -109,7 +124,9 @@ def make_env_and_dataset(env_name: str,
                 batch_size=FLAGS.batch_size,
                 seq_len=FLAGS.seq_len,
                 use_diff=FLAGS.use_diff,
-                label_mode=FLAGS.label_mode
+                label_mode=FLAGS.label_mode,
+                with_attn_weights = True,
+                percentile=90.0,
             )
         del reward_model
 
@@ -143,11 +160,15 @@ def initialize_model():
 
 
 def main(_):
+    cvae_path = "subgoal_vae_"+FLAGS.env_name+"_"+str(FLAGS.seed)+"_"+str(FLAGS.latent_dim)+"_"+str(FLAGS.hidden_dim)+"_"+str(FLAGS.topkp)+"_"+str(FLAGS.state_action)+".pkl"
     save_dir = os.path.join(FLAGS.save_dir, 'tb',
                         FLAGS.env_name,
                             f"reward_{FLAGS.use_reward_model}_{FLAGS.model_type}" if FLAGS.use_reward_model else "original",
                             f"{FLAGS.comment}",
                             str(FLAGS.seed),
+                            f"{cvae_path}",
+                            f"{FLAGS.method}",
+                            str(FLAGS.shaping_weight),
                             f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
     summary_writer = SummaryWriter(save_dir,
@@ -161,6 +182,12 @@ def main(_):
                     env.observation_space.sample()[np.newaxis],
                     env.action_space.sample()[np.newaxis],
                     max_steps=FLAGS.max_steps,
+                    cvae_path = cvae_path,
+                    method = FLAGS.method,
+                    shaping_weight = FLAGS.shaping_weight,
+                    vae_latent_dim = FLAGS.latent_dim,
+                    vae_hidden_dim = FLAGS.hidden_dim,
+                    state_action = FLAGS.state_action,
                     **kwargs)
 
     eval_returns = []

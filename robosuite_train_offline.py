@@ -37,8 +37,8 @@ flags.DEFINE_integer('eval_interval', 5000, 'Eval interval.')
 flags.DEFINE_integer('batch_size', 256, 'Mini batch size.')
 flags.DEFINE_integer('max_steps', int(1e6), 'Number of training steps.')
 flags.DEFINE_boolean('tqdm', True, 'Use tqdm progress bar.')
-flags.DEFINE_boolean('use_reward_model', False, 'Use reward model for relabeling reward.')
-flags.DEFINE_string('model_type', 'MLP', 'type of reward model.')
+flags.DEFINE_boolean('use_reward_model', True, 'Use reward model for relabeling reward.')
+flags.DEFINE_string('model_type', 'PrefTransformer', 'type of reward model.')
 flags.DEFINE_string('ckpt_dir',
                     './logs/pref_reward',
                     'ckpt path for reward model.')
@@ -52,11 +52,12 @@ flags.DEFINE_string('pref_attn_type', 'max', 'mode for preference attention with
 flags.DEFINE_integer('max_episode_steps', 500, 'max_episode_steps for rollout.')
 flags.DEFINE_string('robosuite_dataset_path', './data', 'hdf5 dataset path for demonstrations')
 flags.DEFINE_string('robosuite_dataset_type', 'ph', 'dataset type for robosuite')
-# flags.DEFINE_list(
-#     'obs_keys',
-#     ["robot0_joint_pos_cos", "robot0_joint_pos_sin", "robot0_joint_vel", "robot0_eef_pos", "robot0_eef_quat", "robot0_gripper_qpos", "robot0_gripper_qvel", "object"],
-#     'obs keys for using in making observations.'
-# )
+flags.DEFINE_string('method', 'cosine_similarity', 'Reward shaping method')
+flags.DEFINE_float('shaping_weight', 1.0, 'Logging interval.')
+flags.DEFINE_integer('latent_dim', 16, 'latent dimension for CVAE')
+flags.DEFINE_integer('hidden_dim', 32, 'hidden dimension for CVAE')
+flags.DEFINE_integer('topkp', 10, 'top k percenetage for CVAE')
+flags.DEFINE_boolean('state_action', True, 'Use only state or state-action pair for reward shaping')
 
 config_flags.DEFINE_config_file(
     'config',
@@ -190,11 +191,15 @@ def initialize_model():
 
 
 def main(_):
+    cvae_path = "subgoal_vae_"+FLAGS.env_name+"_"+str(FLAGS.robosuite_dataset_type)+"_"+str(FLAGS.seed)+"_"+str(FLAGS.latent_dim)+"_"+str(FLAGS.hidden_dim)+"_"+str(FLAGS.topkp)+"_"+str(FLAGS.state_action)+".pkl"
     save_dir = os.path.join(FLAGS.save_dir, 'tb',
                         FLAGS.env_name,
                             f"reward_{FLAGS.use_reward_model}_{FLAGS.model_type}" if FLAGS.use_reward_model else "original",
                             f"{FLAGS.comment}",
                             str(FLAGS.seed),
+                            f"{cvae_path}",
+                            f"{FLAGS.method}",
+                            str(FLAGS.shaping_weight),
                             f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
     summary_writer = SummaryWriter(save_dir,
@@ -209,6 +214,12 @@ def main(_):
                     env.observation_space.sample()[np.newaxis],
                     env.action_space.sample()[np.newaxis],
                     max_steps=FLAGS.max_steps,
+                    cvae_path = cvae_path,
+                    method = FLAGS.method,
+                    shaping_weight = FLAGS.shaping_weight,
+                    vae_latent_dim = FLAGS.latent_dim,
+                    vae_hidden_dim = FLAGS.hidden_dim,
+                    state_action = FLAGS.state_action,
                     **kwargs)
 
     eval_returns = []

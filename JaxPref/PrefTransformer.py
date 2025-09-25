@@ -27,7 +27,6 @@ import pickle
 import random
 import jax.random as jrandom
 from .subgoal_vae_model import SubgoalVAE
-from .subgoal_cvae_model import SubgoalCVAE
 from flax import serialization
 
 
@@ -52,7 +51,7 @@ class PrefTransformer(object):
         config.train_type = "mean"
 
         # Weighted Sum option
-        config.use_weighted_sum = False
+        config.use_weighted_sum = True
 
         if updates is not None:
             config.update(ConfigDict(updates).copy_and_resolve_references())
@@ -115,33 +114,58 @@ class PrefTransformer(object):
         self.accumulated_dataset = []
         self.samples_per_segment = 1
         self.save_interval = 1000  # 1000 스텝마다 데이터셋 저장
-        self.file_path = "accumulated_subgoal_dataset.pkl"
-        # self.latent_dim = 128
-        # self.hidden_dims = [512,512]
-        self.latent_dim = 16
-        self.hidden_dims = [32, 64, 32]
+        self.latent_dim = config.latent_dim
+        self.hidden_dim =config.hidden_dim
+        if config.hidden_dim == 32:
+            self.hidden_dims = [32, 64, 32]
+        elif config.hidden_dim == 64:
+            self.hidden_dims = [64, 128, 64]
+        elif config.hidden_dim == 128:
+            self.hidden_dims = [128, 256, 128]
+        elif config.hidden_dim == 750:
+            self.hidden_dims = [750,750]
         self.vae_learning_rate = 1e-4
         self.vae_batch_size = 256
-        # VAE
-        # self.vae = SubgoalVAE(
-        #     self.latent_dim, self.observation_dim, self.action_dim, self.hidden_dims
-        # )
+        self.seed =config.seed
+        self.topkp =config.topkp
+        self.state_action = config.state_action
+       
         # CVAE
-        self.vae = SubgoalCVAE(
-            self.latent_dim, self.observation_dim, self.action_dim, self.hidden_dims
-        )
-        self.vae_state = self.create_vae_train_state(self.vae, self.vae_learning_rate)
-
-    def create_vae_train_state(self, model, learning_rate):
-        params = model.init(
-            jax.random.PRNGKey(0),
-            jnp.ones((1, model.state_dim)),
-            jnp.ones((1, model.action_dim)),
-            # CVAE
-            jnp.ones((1, model.state_dim)),
-        )
-        tx = optax.adam(learning_rate)
-        return TrainState.create(apply_fn=model.apply, params=params, tx=tx)
+        if self.state_action:
+            from .subgoal_cvae_model_state_action import SubgoalCVAE
+            def create_vae_train_state(model, learning_rate):
+                params = model.init(
+                    jax.random.PRNGKey(0),
+                    jnp.ones((1, model.state_dim)),
+                    jnp.ones((1, model.action_dim)),
+                    # CVAE
+                    jnp.ones((1, model.state_dim)),
+                    jnp.ones((1, model.action_dim)),
+                )
+                tx = optax.adam(learning_rate)
+                return TrainState.create(apply_fn=model.apply, params=params, tx=tx)
+            self.vae = SubgoalCVAE(
+                self.latent_dim, self.observation_dim, self.action_dim, self.hidden_dims
+            )
+            self.vae_state = create_vae_train_state(self.vae, self.vae_learning_rate)
+ 
+        else:
+            from .subgoal_cvae_model import SubgoalCVAE
+            def create_vae_train_state(model, learning_rate):
+                params = model.init(
+                    jax.random.PRNGKey(0),
+                    jnp.ones((1, model.state_dim)),
+                    jnp.ones((1, model.action_dim)),
+                    # CVAE
+                    jnp.ones((1, model.state_dim)),
+                )
+                tx = optax.adam(learning_rate)
+                return TrainState.create(apply_fn=model.apply, params=params, tx=tx)
+    
+            self.vae = SubgoalCVAE(
+                self.latent_dim, self.observation_dim, self.action_dim, self.hidden_dims
+            )
+            self.vae_state = create_vae_train_state(self.vae, self.vae_learning_rate)
 
     def cosine_similarity(self, a, b):
         return jnp.sum(a * b, axis=-1) / (
@@ -163,32 +187,47 @@ class PrefTransformer(object):
     @partial(jax.jit, static_argnames=["self"])
     def vae_train_step(self, state, batch):
         def loss_fn(params):
-            # VAE
-            # recon_subgoal, mu, log_var = state.apply_fn(
-            #     params, batch["state"], batch["action"]
-            # )
             # CVAE
-            recon_subgoal, post_mu, post_log_var, prior_mu, prior_log_var = (
-                state.apply_fn(
-                    params,
-                    batch["state"],
-                    batch["action"],
-                    batch["subgoal_state"],
-                    training=True,
+            if self.state_action:
+                recon_subgoal, post_mu, post_log_var, prior_mu, prior_log_var = (
+                    state.apply_fn(
+                        params,
+                        batch["state"],
+                        batch["action"],
+                        batch["subgoal_state"],
+                        batch["subgoal_action"],
+                        training=True,
+                    )
                 )
-            )
+                obs_dim = batch["state"].shape[-1]
+                recon_subgoal_state  = recon_subgoal[..., :obs_dim]    # shape = (batch, seq_len, state_dim)
+                recon_subgoal_action = recon_subgoal[..., obs_dim:]    # shape = (batch, seq_len, action_dim)
+                # CVAE Reconstruction Loss - MSE is more appropriate for subgoal generation
+                state_mse = jnp.mean((recon_subgoal_state - batch["subgoal_state"]) ** 2) 
+                action_mse = jnp.mean((recon_subgoal_action - batch["subgoal_action"]) ** 2)
+                recon_loss  =state_mse + action_mse
+            else:
+                recon_subgoal, post_mu, post_log_var, prior_mu, prior_log_var = (
+                    state.apply_fn(
+                        params,
+                        batch["state"],
+                        batch["action"],
+                        batch["subgoal_state"],
+                        training=True,
+                    )
+                )
 
-            # # Cosine similarity loss
+                # CVAE Reconstruction Loss - MSE is more appropriate for subgoal generation
+                # recon_loss = jnp.mean((recon_subgoal - batch["subgoal_state"]) ** 2)
+                mse_loss = jnp.mean((recon_subgoal - batch["subgoal_state"]) ** 2)
+            
             similarity = self.cosine_similarity(recon_subgoal, batch["subgoal_state"])
             similarities_loss = jnp.mean((similarity + 1) / 2)
             variance_penalty = jnp.var(similarity)
-            recon_loss = similarities_loss + 0.1 * variance_penalty
-
-            # cons_loss = similarities_loss + 0.1 * variance_penalty
-
-            # MSE
-            # recon_loss = jnp.mean((recon_subgoal - batch["subgoal_state"]) ** 2)
-            # recon_loss = 0.5 * cons_loss + 0.5 * mse_loss
+            cos_loss = similarities_loss + 0.1 * variance_penalty
+            recon_loss = mse_loss + cos_loss
+            # similarity = self.cosine_similarity(recon_subgoal, batch["subgoal_state"])
+            # cos_loss = jnp.mean(1.0 - (similarity + 1.0) * 0.5) + 0.1 * jnp.var(similarity)
 
             # KL divergence loss
             # kl_loss = -0.5 * jnp.mean(1 + log_var - mu**2 - jnp.exp(log_var))
@@ -201,7 +240,7 @@ class PrefTransformer(object):
                 - post_log_var
             )
 
-            # Total loss
+            # Total loss - ELBO: reconstruction - KL divergence
             loss = recon_loss + kl_loss
             return loss, (recon_loss, kl_loss)
 
@@ -215,14 +254,22 @@ class PrefTransformer(object):
             len(self.accumulated_dataset), self.vae_batch_size, replace=False
         )
         batch = [self.accumulated_dataset[i] for i in indices]
-        return {
-            "state": jnp.array([item[0]["state"] for item in batch]),
-            "action": jnp.array([item[0]["action"] for item in batch]),
-            "subgoal_state": jnp.array([item[0]["subgoal_state"] for item in batch]),
-        }
+        if self.state_action:
+            return {
+                "state": jnp.array([item[0]["state"] for item in batch]),
+                "action": jnp.array([item[0]["action"] for item in batch]),
+                "subgoal_state": jnp.array([item[0]["subgoal_state"] for item in batch]),
+                "subgoal_action": jnp.array([item[0]["subgoal_action"] for item in batch]),
+            }        
+        else:
+            return {
+                "state": jnp.array([item[0]["state"] for item in batch]),
+                "action": jnp.array([item[0]["action"] for item in batch]),
+                "subgoal_state": jnp.array([item[0]["subgoal_state"] for item in batch]),
+            }
 
     def save_vae_model(self, env_name):
-        filename = f"subgoal_vae_{env_name}.pkl"
+        filename = f"subgoal_vae_{env_name}_{self.seed}_{self.latent_dim}_{self.hidden_dim}_{self.topkp}_{self.state_action}.pkl"
         with open(filename, "wb") as f:
             pickle.dump(self.vae_state.params, f)
         print(f"VAE params (PyTree) saved to {filename}")
@@ -235,148 +282,10 @@ class PrefTransformer(object):
         print(f"VAE params loaded from {filename}")
         return self.vae_state
 
-    # def load_vae_model(self, filename):
-    #     params = jax.numpy.load(filename)
-    #     self.vae_state = self.vae_state.replace(params=params)
-
-    # def save_vae_model(self, env_name):
-    #     filename = f"subgoal_vae_{env_name}.npz"
-    #     jax.numpy.savez(filename, **self.vae_state.params)
-    #     print(f"VAE model parameters saved to {filename}")
-
     def evaluation(self, batch, env_name):
-        def visualize_evaluation(
-            env_name, batch, total_steps, learned_rewards, importance_weights
-        ):
-            save_dir = f"./evaluation_{env_name}"
-            os.makedirs(save_dir, exist_ok=True)
-            env = gym.make(env_name)
-            fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 10))
-
-            # Split into two trajectories
-            learned_rewards_1 = learned_rewards[0][0][:100]
-            learned_rewards_2 = learned_rewards[0][0][100:]
-            importance_weights_1 = importance_weights[0][0][:100]
-            importance_weights_2 = importance_weights[0][0][100:]
-
-            trajectories = [
-                (learned_rewards_1, importance_weights_1),
-                (learned_rewards_2, importance_weights_2),
-            ]
-
-            # For each trajectory
-            for traj_idx, (rewards, importance_weight) in enumerate(trajectories):
-                env.reset()
-                video = []
-                if traj_idx == 1:
-                    observations = batch[f"observations_{traj_idx+1}"][0]
-                    actions = batch[f"actions_{traj_idx+1}"][0]
-                else:
-                    observations = batch["observations"][0]
-                    actions = batch["actions"][0]
-
-                max_importance_index = np.argmax(importance_weight)
-                avg_importance = np.mean(importance_weight)
-
-                # Video generation code (unchanged)
-                for i, obs in enumerate(observations):
-                    if "antmaze" in env_name.lower():
-                        qpos = obs[: env.sim.model.nq]
-                        qvel = obs[
-                            env.sim.model.nq : env.sim.model.nq + env.sim.model.nv
-                        ]
-                    elif "hopper" in env_name.lower() or "walker" in env_name.lower():
-                        qpos = np.zeros(env.sim.model.nq)
-                        qpos[1 : (env.sim.model.nq)] = obs[: (env.sim.model.nq) - 1]
-                        qvel = obs[env.sim.model.nq - 1 :]
-
-                    env.set_state(qpos, qvel)
-                    env.do_simulation(actions[0], env.frame_skip)
-                    if "antmaze" in env_name.lower():
-                        frame = env.render(
-                            mode="rgb_array", camera_id=1, width=800, height=600
-                        )
-                    else:
-                        frame = env.render(mode="rgb_array")
-
-                    if i == max_importance_index:
-                        highlighted_frame = highlight_frame(frame, "Highest Importance")
-                        video.append(highlighted_frame)
-                    elif importance_weight[i] > avg_importance:
-                        avg_frame = highlight_frame(frame, "Above Average Importance")
-                        video.append(avg_frame)
-                    else:
-                        video.append(frame)
-
-                # Save the video
-                video_path = os.path.join(
-                    save_dir, f"trajectory_{traj_idx + 1}_step_{total_steps}.mp4"
-                )
-                imageio.mimsave(video_path, video, fps=30)
-
-                # Plot rewards and importance weights
-                timesteps = np.arange(rewards.shape[0])
-                ax = ax1 if traj_idx == 0 else ax2
-                ax.plot(timesteps, rewards.flatten(), "r-", label="Learned reward")
-                ax.set_ylabel("Learned reward", color="r")
-                ax.tick_params(axis="y", labelcolor="r")
-
-                ax_twin = ax.twinx()
-                ax_twin.plot(
-                    timesteps, importance_weight, "b-", label="Importance weight"
-                )
-                ax_twin.set_ylabel("Importance weight", color="b")
-                ax_twin.tick_params(axis="y", labelcolor="b")
-
-                # Highlight the point with highest importance weight
-                ax_twin.plot(
-                    max_importance_index,
-                    importance_weight[max_importance_index],
-                    "bo",
-                    markersize=10,
-                )
-
-                ax.set_xlabel("Timesteps")
-                ax.set_title(
-                    f"Trajectory {traj_idx + 1} - Learned Reward and Importance Weight"
-                )
-                ax.legend(loc="upper left")
-                ax_twin.legend(loc="upper right")
-
-            plt.tight_layout()
-            image_path = os.path.join(
-                save_dir, f"reward_importance_plot_{total_steps}.png"
-            )
-            plt.savefig(image_path)
-            plt.close()
-
-        def highlight_frame(frame, text):
-            # Create a copy of the frame
-            highlighted = frame.copy()
-
-            # Add a red border
-            border_thickness = 5
-            highlighted = cv2.rectangle(
-                highlighted,
-                (0, 0),
-                (frame.shape[1], frame.shape[0]),
-                (0, 0, 255),
-                border_thickness,
-            )
-
-            # Add text overlay
-            font = cv2.FONT_HERSHEY_SIMPLEX
-            cv2.putText(
-                highlighted, text, (10, 30), font, 1, (255, 255, 255), 2, cv2.LINE_AA
-            )
-
-            return highlighted
-
         metrics, learned_rewards, importance_weights = self._eval_pref_step(
             self._train_states, next_rng(), batch
         )
-        # if self._total_steps%500 ==0:
-        #     visualize_evaluation(env_name, batch, self._total_steps,learned_rewards, importance_weights)
         return metrics
 
     def get_reward(self, batch):
@@ -442,28 +351,33 @@ class PrefTransformer(object):
             else:
                 attention_1 = attn_weights_list_1[-1]
                 attention_2 = attn_weights_list_2[-1]
-            # attention_1 = attn_weights_list_1[-1]
-            # attention_2 = attn_weights_list_2[-1]
 
-            attention_1_mean = jnp.mean(attention_1, axis=1)
-            attention_2_mean = jnp.mean(attention_2, axis=1)
-
-            attention_1_squeezed = attention_1_mean.reshape(B, 2, T, 2, T)
-            attention_2_squeezed = attention_2_mean.reshape(B, 2, T, 2, T)
-
-            if reverse:
-                attention_1 = attention_1_squeezed[:, 0, :, 0, :]
-                attention_2 = attention_2_squeezed[:, 0, :, 0, :]
+            if self.config.use_weighted_sum:
+                attention_1_mean = jnp.mean(attention_1, axis=1)
+                attention_2_mean = jnp.mean(attention_2, axis=1)
+                attention_1 = attention_1_mean
+                attention_2 = attention_2_mean
             else:
-                attention_1 = attention_1_squeezed[:, 1, :, 1, :]
-                attention_2 = attention_2_squeezed[:, 1, :, 1, :]
+                # attention_1의 shape: [B, num_heads, T, T] -> [B, T, T]로 평균
+                attention_1_mean = jnp.mean(attention_1, axis=1)
+                attention_2_mean = jnp.mean(attention_2, axis=1)
+                
+                # [B, T, T] -> [B, 2, T//2, 2, T//2]로 reshape (T가 짝수여야 함)
+                attention_1_squeezed = attention_1_mean.reshape(B, 2, T//2, 2, T//2)
+                attention_2_squeezed = attention_2_mean.reshape(B, 2, T//2, 2, T//2)
+                
+                if reverse:
+                    attention_1 = attention_1_squeezed[:, 0, :, 0, :]  # action->action
+                    attention_2 = attention_2_squeezed[:, 0, :, 0, :]
+                else:
+                    attention_1 = attention_1_squeezed[:, 1, :, 1, :]  # state->state
+                    attention_2 = attention_2_squeezed[:, 1, :, 1, :]
 
-            attention_1 = attention_1.reshape(B, T, T)
-            attention_2 = attention_2.reshape(B, T, T)
+                attention_1 = attention_1.reshape(B, T//2, T//2)
+                attention_2 = attention_2.reshape(B, T//2, T//2)
 
             importance_weight_1 = jnp.diagonal(attention_1, axis1=1, axis2=2)
             importance_weight_2 = jnp.diagonal(attention_2, axis1=1, axis2=2)
-            # print("importance_weight_1",importance_weight_1)
 
             if self.config.use_weighted_sum:
                 trans_pred_1 = trans_pred_1["weighted_sum"]
@@ -501,10 +415,12 @@ class PrefTransformer(object):
                 locals(),
                 learned_rewards,
                 importance_weight,
+                _,
+                _,
             )
 
         train_params = {key: train_states[key].params for key in self.model_keys}
-        (_, aux_values), _, learned_rewards, importance_weight = value_and_multi_grad(
+        (_, aux_values), _, learned_rewards, importance_weight, _, _ = value_and_multi_grad(
             loss_fn, len(self.model_keys), has_aux=True
         )(train_params, rng)
         metrics = dict(
@@ -513,13 +429,16 @@ class PrefTransformer(object):
         )
         return metrics, learned_rewards, importance_weight
 
-    @partial(jax.jit, static_argnames=["self", "threshold_percentile"])
+    @partial(jax.jit, static_argnames=["self", "threshold_percentile","topkp"])
     def extract_and_accumulate_subgoals(
         self,
         batch,
         rng,
         importance_weight_1,
         importance_weight_2,
+        trans_pred_1,
+        trans_pred_2,
+        topkp,
         threshold_percentile=90,
     ):
         obs_1, act_1, obs_2, act_2, labels = (
@@ -546,97 +465,99 @@ class PrefTransformer(object):
 
                 return jax.lax.cond(
                     cond_1,
-                    lambda _: (obs_1[b], act_1[b], importance_weight_1[0][b]),
+                    lambda _: (obs_1[b], act_1[b], importance_weight_1[0][b], trans_pred_1[0][b]),
                     lambda _: jax.lax.cond(
                         cond_2,
-                        lambda _: (obs_2[b], act_2[b], importance_weight_2[0][b]),
+                        lambda _: (obs_2[b], act_2[b], importance_weight_2[0][b], trans_pred_2[0][b]),
                         lambda _: (
                             jnp.full_like(obs_1[b], jnp.nan),
                             jnp.full_like(act_1[b], jnp.nan),
                             jnp.full_like(importance_weight_1[0][b], jnp.nan),
+                            jnp.full_like(trans_pred_1[0][b], jnp.nan),
                         ),
                         None,
                     ),
                     None,
                 )
 
-            obs, act, importance_weight = select_trajectory(label_0, label_1)
+            obs, act, importance_weight, trans_pred = select_trajectory(label_0, label_1)
+            # Squeeze trans_pred to match importance_weight shape
+            trans_pred = jnp.squeeze(trans_pred, axis=-1)
 
             is_valid = jnp.logical_not(jnp.any(jnp.isnan(obs)))
 
             def process_valid_trajectory():
                 # From the top 10% result
-                threshold = jnp.sort(importance_weight)[
-                    int(len(importance_weight) * threshold_percentile / 100)
-                ]
-                sizing = len(importance_weight) - int(
-                    len(importance_weight) * threshold_percentile / 100
-                )
-                subgoal_indices = jnp.sort(
-                    jnp.concatenate(
-                        [
-                            jnp.where(importance_weight >= threshold, size=sizing)[0],
-                            jnp.array([T - 1]),
-                        ]
+                if topkp == 10:
+                    threshold = jnp.sort(importance_weight)[
+                        int(len(importance_weight) * threshold_percentile / 100)
+                    ]
+                    trans_mean = jnp.mean(trans_pred)  # reward 평균
+                    sizing = len(importance_weight) - int(
+                        len(importance_weight) * threshold_percentile / 100
                     )
-                )
+                    subgoal_indices = jnp.sort(
+                        jnp.concatenate(
+                            [
+                                jnp.where((importance_weight >= threshold) & (trans_pred >= trans_mean), size=sizing)[0],
+                                jnp.array([T - 1]),
+                            ]
+                        )
+                    )
+                elif topkp==20:
+                    threshold_upper = jnp.sort(importance_weight)[
+                        int(len(importance_weight) * (threshold_percentile - 10) / 100)
+                    ]
+                    # Top 10% threshold
+                    threshold_lower = jnp.sort(importance_weight)[
+                        int(len(importance_weight) * threshold_percentile / 100)
+                    ]
+                    # 10~20% 구간에 해당하는 인덱스 추출
+                    subgoal_indices = jnp.sort(
+                        jnp.concatenate(
+                            [
+                                jnp.where(
+                                    (importance_weight >= threshold_upper)
+                                    & (importance_weight < threshold_lower),
+                                    size=int(len(importance_weight) * 0.1),
+                                )[0],
+                                jnp.array([T - 1]),
+                            ]
+                        )
+                    )
+                elif topkp == (-10):
+                    threshold = jnp.sort(importance_weight)[
+                        int(len(importance_weight) * 10 / 100)
+                    ]
+                    sizing = int(len(importance_weight) * 0.1)  # 10%
+                    subgoal_indices = jnp.sort(
+                        jnp.concatenate(
+                            [
+                                jnp.where(importance_weight <= threshold, size=sizing)[0],
+                                jnp.array([T - 1]),
+                            ]
+                        )
+                    )
+                elif topkp == (-20) :
+                    threshold_upper = jnp.sort(importance_weight)[
+                        int(len(importance_weight) * 20 / 100)
+                    ]
+                    threshold_lower = jnp.sort(importance_weight)[
+                        int(len(importance_weight) * 10 / 100)
+                    ]
 
-                # 상위 20% 지점의 threshold
-                # threshold_upper = jnp.sort(importance_weight)[
-                #     int(len(importance_weight) * (threshold_percentile - 10) / 100)
-                # ]
-                # # 상위 10% 지점의 threshold
-                # threshold_lower = jnp.sort(importance_weight)[
-                #     int(len(importance_weight) * threshold_percentile / 100)
-                # ]
-                # # 10~20% 구간에 해당하는 인덱스 추출
-                # subgoal_indices = jnp.sort(
-                #     jnp.concatenate(
-                #         [
-                #             jnp.where(
-                #                 (importance_weight >= threshold_upper)
-                #                 & (importance_weight < threshold_lower),
-                #                 size=int(len(importance_weight) * 0.1),
-                #             )[0],
-                #             jnp.array([T - 1]),
-                #         ]
-                #     )
-                # )
-
-                # bottom 10%
-                # threshold = jnp.sort(importance_weight)[
-                #     int(len(importance_weight) * 10 / 100)
-                # ]
-                # sizing = int(len(importance_weight) * 0.1)  # 10%
-                # subgoal_indices = jnp.sort(
-                #     jnp.concatenate(
-                #         [
-                #             jnp.where(importance_weight <= threshold, size=sizing)[0],
-                #             jnp.array([T - 1]),
-                #         ]
-                #     )
-                # )
-
-                # bottom 10~20% threshold
-                # threshold_upper = jnp.sort(importance_weight)[
-                #     int(len(importance_weight) * 20 / 100)
-                # ]
-                # threshold_lower = jnp.sort(importance_weight)[
-                #     int(len(importance_weight) * 10 / 100)
-                # ]
-
-                # subgoal_indices = jnp.sort(
-                #     jnp.concatenate(
-                #         [
-                #             jnp.where(
-                #                 (importance_weight <= threshold_upper)
-                #                 & (importance_weight > threshold_lower),
-                #                 size=int(len(importance_weight) * 0.1),
-                #             )[0],
-                #             jnp.array([T - 1]),
-                #         ]
-                #     )
-                # )
+                    subgoal_indices = jnp.sort(
+                        jnp.concatenate(
+                            [
+                                jnp.where(
+                                    (importance_weight <= threshold_upper)
+                                    & (importance_weight > threshold_lower),
+                                    size=int(len(importance_weight) * 0.1),
+                                )[0],
+                                jnp.array([T - 1]),
+                            ]
+                        )
+                    )
 
                 rngs = jrandom.split(rng, len(subgoal_indices) - 1)
 
@@ -654,12 +575,22 @@ class PrefTransformer(object):
                             (jnp.arange(T) >= start) & (jnp.arange(T) < end), 1.0, 0.0
                         ),
                     )
-                    return {
-                        "state": obs[sample_index],
-                        "action": act[sample_index],
-                        "subgoal_state": obs[end],
-                        "is_valid": jnp.array(True),
-                    }
+                    if self.state_action:
+                        return {
+                            "state": obs[sample_index],
+                            "action": act[sample_index],
+                            "subgoal_state": obs[end],
+                            "subgoal_action": act[end],
+                            "is_valid": jnp.array(True),
+                        }
+                    else:    
+                        return {
+                            "state": obs[sample_index],
+                            "action": act[sample_index],
+                            "subgoal_state": obs[end],
+                            # "subgoal_state": act[end],
+                            "is_valid": jnp.array(True),
+                        }
 
                 return jax.vmap(subgoal)(jnp.arange(len(subgoal_indices) - 1), rngs)
 
@@ -674,12 +605,22 @@ class PrefTransformer(object):
                 dummy_subgoal_state = jnp.zeros_like(obs[:sizing])
                 dummy_is_valid = jnp.zeros((sizing,), dtype=bool)
 
-                return {
-                    "state": dummy_state,
-                    "action": dummy_action,
-                    "subgoal_state": dummy_subgoal_state,
-                    "is_valid": dummy_is_valid,
-                }
+                if self.state_action:
+                    dummy_subgoal_action = jnp.zeros_like(act[:sizing])
+                    return {
+                        "state": dummy_state,
+                        "action": dummy_action,
+                        "subgoal_state": dummy_subgoal_state,
+                        "subgoal_action": dummy_subgoal_action,
+                        "is_valid": dummy_is_valid,
+                    }
+                else:
+                    return {
+                        "state": dummy_state,
+                        "action": dummy_action,
+                        "subgoal_state": dummy_subgoal_state,
+                        "is_valid": dummy_is_valid,
+                    }
 
             return (
                 jax.lax.cond(
@@ -704,12 +645,12 @@ class PrefTransformer(object):
 
     def train(self, batch, env_name):
         self._total_steps += 1
-        self._train_states, metrics, importance_weight_1, importance_weight_2 = (
+        self._train_states, metrics, importance_weight_1, importance_weight_2, trans_pred_1, trans_pred_2 = (
             self._train_pref_step(self._train_states, next_rng(), batch)
         )
-
+        
         all_subgoals, is_valid = self.extract_and_accumulate_subgoals(
-            batch, next_rng(), importance_weight_1, importance_weight_2
+            batch, next_rng(), importance_weight_1, importance_weight_2, trans_pred_1, trans_pred_2,self.topkp,
         )
 
         def filter_valid_batches(subgoals, valid_mask):
@@ -752,8 +693,6 @@ class PrefTransformer(object):
 
             rng, _ = jax.random.split(rng)
 
-            # trans_pred_1, _ = self.trans.apply(train_params['trans'], obs_1, act_1, timestep_1, training=True, attn_mask=None, rngs={"dropout": rng})
-            # trans_pred_2, _ = self.trans.apply(train_params['trans'], obs_2, act_2, timestep_2, training=True, attn_mask=None, rngs={"dropout": rng})
             trans_pred_1, attn_weights_list_1, reverse = self.trans.apply(
                 train_params["trans"],
                 obs_1,
@@ -773,70 +712,64 @@ class PrefTransformer(object):
                 rngs={"dropout": rng},
             )
 
+            if self.config.use_weighted_sum:
+                trans_pred_1 = trans_pred_1["weighted_sum"]
+                trans_pred_2 = trans_pred_2["weighted_sum"]
+            else:
+                trans_pred_1 = trans_pred_1["value"]
+                trans_pred_2 = trans_pred_2["value"]
+
+
             if flag == False:
                 attention_1 = attn_weights_list_1[-1].primal
                 attention_2 = attn_weights_list_2[-1].primal
             else:
                 attention_1 = attn_weights_list_1[-1]
                 attention_2 = attn_weights_list_2[-1]
-            # attention_1 = attn_weights_list_1[-1]
-            # attention_2 = attn_weights_list_2[-1]
 
-            attention_1_mean = jnp.mean(attention_1, axis=1)
-            attention_2_mean = jnp.mean(attention_2, axis=1)
-            attention_1_squeezed = attention_1_mean.reshape(B, 2, T, 2, T)
-            attention_2_squeezed = attention_2_mean.reshape(B, 2, T, 2, T)
-            if reverse:
-                attention_1 = attention_1_squeezed[:, 0, :, 0, :]
-                attention_2 = attention_2_squeezed[:, 0, :, 0, :]
-            else:
-                attention_1 = attention_1_squeezed[:, 1, :, 1, :]
-                attention_2 = attention_2_squeezed[:, 1, :, 1, :]
-
-            attention_1 = attention_1.reshape(B, T, T)
-            attention_2 = attention_2.reshape(B, T, T)
-
-            importance_weight_1 = jnp.diagonal(attention_1, axis1=1, axis2=2)
-            importance_weight_2 = jnp.diagonal(attention_2, axis1=1, axis2=2)
-
-            avg_attention = jnp.mean(importance_weight_1, axis=-1)
-            avg_attention = jnp.mean(importance_weight_2, axis=-1)
-
-            # important_obs_1 = obs_1[jnp.arange(obs_1.shape[0]), max_indices_1]
-            # important_obs_2 = obs_2[jnp.arange(obs_2.shape[0]), max_indices_2]
-
-            # trans_neg_pred_1, _,_ = self.trans.apply(train_params['trans'], obs_1, act_1,timestep_1,self.neg_language_goal, training=True, attn_mask=None, rngs={"dropout": rng})
-            # trans_neg_pred_2, _,_ = self.trans.apply(train_params['trans'], obs_2, act_2,timestep_2,self.neg_language_goal, training=True, attn_mask=None, rngs={"dropout": rng})
 
             if self.config.use_weighted_sum:
-                trans_pred_1 = trans_pred_1["weighted_sum"]
-                trans_pred_2 = trans_pred_2["weighted_sum"]
-                # trans_neg_pred_1 = trans_neg_pred_1["weighted_sum"]
-                # trans_neg_pred_2 = trans_neg_pred_2["weighted_sum"]
+                attention_1_mean = jnp.mean(attention_1, axis=1)
+                attention_2_mean = jnp.mean(attention_2, axis=1)
+                attention_1 = attention_1_mean
+                attention_2 = attention_2_mean
             else:
-                trans_pred_1 = trans_pred_1["value"]
-                trans_pred_2 = trans_pred_2["value"]
-                # trans_neg_pred_1 = trans_neg_pred_1["value"]
-                # trans_neg_pred_2 = trans_neg_pred_2["value"]
+                # attention_1의 shape: [B, num_heads, T, T] -> [B, T, T]로 평균
+                attention_1_mean = jnp.mean(attention_1, axis=1)
+                attention_2_mean = jnp.mean(attention_2, axis=1)
+                
+                # [B, T, T] -> [B, 2, T//2, 2, T//2]로 reshape (T가 짝수여야 함)
+                attention_1_squeezed = attention_1_mean.reshape(B, 2, T//2, 2, T//2)
+                attention_2_squeezed = attention_2_mean.reshape(B, 2, T//2, 2, T//2)
+                
+                if reverse:
+                    attention_1 = attention_1_squeezed[:, 0, :, 0, :]  # action->action
+                    attention_2 = attention_2_squeezed[:, 0, :, 0, :]
+                else:
+                    attention_1 = attention_1_squeezed[:, 1, :, 1, :]  # state->state
+                    attention_2 = attention_2_squeezed[:, 1, :, 1, :]
+
+                attention_1 = attention_1.reshape(B, T//2, T//2)
+                attention_2 = attention_2.reshape(B, T//2, T//2)
+
+            # Attention weight 계산
+            importance_weight_1 = jnp.diagonal(attention_1, axis1=1, axis2=2)
+            importance_weight_2 = jnp.diagonal(attention_2, axis1=1, axis2=2)
 
             if self.config.train_type == "mean":
                 sum_pred_1 = jnp.mean(trans_pred_1.reshape(B, T), axis=1).reshape(-1, 1)
                 sum_pred_2 = jnp.mean(trans_pred_2.reshape(B, T), axis=1).reshape(-1, 1)
-                # sum_neg_pred_1 = jnp.mean(trans_neg_pred_1.reshape(B, T), axis=1).reshape(-1, 1)
-                # sum_neg_pred_2 = jnp.mean(trans_neg_pred_2.reshape(B, T), axis=1).reshape(-1, 1)
+
             elif self.config.train_type == "sum":
                 sum_pred_1 = jnp.sum(trans_pred_1.reshape(B, T), axis=1).reshape(-1, 1)
                 sum_pred_2 = jnp.sum(trans_pred_2.reshape(B, T), axis=1).reshape(-1, 1)
-                # sum_neg_pred_1 = jnp.sum(trans_neg_pred_1.reshape(B, T), axis=1).reshape(-1, 1)
-                # sum_neg_pred_2 = jnp.sum(trans_neg_pred_2.reshape(B, T), axis=1).reshape(-1, 1)
+
             elif self.config.train_type == "last":
                 sum_pred_1 = trans_pred_1.reshape(B, T)[:, -1].reshape(-1, 1)
                 sum_pred_2 = trans_pred_2.reshape(B, T)[:, -1].reshape(-1, 1)
-                # sum_neg_pred_1 = trans_neg_pred_1.reshape(B, T)[:, -1].reshape(-1, 1)
-                # sum_neg_pred_2 = trans_neg_pred_2.reshape(B, T)[:, -1].reshape(-1, 1)
+
 
             logits = jnp.concatenate([sum_pred_1, sum_pred_2], axis=1)
-            # neg_logits = jnp.concatenate([sum_neg_pred_1, sum_neg_pred_2], axis=1)
             loss_collection = {}
 
             rng, split_rng = jax.random.split(rng)
@@ -844,35 +777,21 @@ class PrefTransformer(object):
             """ reward function loss """
             label_target = jax.lax.stop_gradient(labels)
             trans_loss = cross_ent_loss(logits, label_target)
-            # trans_neg_loss = cross_ent_loss(neg_logits, label_target)
             cse_loss = trans_loss
-            # trans_loss = trans_loss - 0.1* trans_neg_loss
-            # jnp.log(trans_loss) + jnp.log(1-trans_neg_loss)
-
-            # mse_loss = compute_MSE_loss(obs_1,obs_2,important_obs_1,important_obs_2,labels)
-            # cons_loss = compute_constrastive_loss(obs_1,obs_2,important_obs_1,important_obs_2,labels)
-            # infonce_loss = compute_infonce_loss(obs_1,obs_2,important_obs_1,important_obs_2,labels)
-            # reversed_infonce_loss = compute_reversed_infonce_loss(obs_1,obs_2,important_obs_1,important_obs_2,labels)
-
-            # trans_loss = trans_loss + reversed_infonce_loss
-
+            
             loss_collection["trans"] = trans_loss
-            # loss_collection['trans_neg_loss'] = trans_neg_loss
-
-            # loss_collection['mse_loss'] = mse_loss
-            # loss_collection['cons_loss'] = cons_loss
-            # loss_collection['infonce_loss'] = infonce_loss
-            # loss_collection['reversed_infonce_loss'] = reversed_infonce_loss
 
             return (
                 tuple(loss_collection[key] for key in self.model_keys),
                 locals(),
                 importance_weight_1,
                 importance_weight_2,
+                trans_pred_1,
+                trans_pred_2,
             )
 
         train_params = {key: train_states[key].params for key in self.model_keys}
-        (_, aux_values), grads, importance_weight_1, importance_weight_2 = (
+        (_, aux_values), grads, importance_weight_1, importance_weight_2, trans_pred_1, trans_pred_2 = (
             value_and_multi_grad(loss_fn, len(self.model_keys), has_aux=True)(
                 train_params, rng
             )
@@ -886,14 +805,9 @@ class PrefTransformer(object):
         metrics = dict(
             cse_loss=aux_values["cse_loss"],
             trans_loss=aux_values["trans_loss"],
-            # trans_neg_loss = aux_values['trans_neg_loss']
-            # mse_loss =aux_values['mse_loss'],
-            # cons_loss =aux_values['cons_loss'],
-            # infonce_loss =aux_values['infonce_loss'],
-            # reversed_infonce_loss =aux_values['reversed_infonce_loss'],
         )
 
-        return new_train_states, metrics, importance_weight_1, importance_weight_2
+        return new_train_states, metrics, importance_weight_1, importance_weight_2, trans_pred_1, trans_pred_2
 
     def train_semi(self, labeled_batch, unlabeled_batch, lmd, tau):
         self._total_steps += 1

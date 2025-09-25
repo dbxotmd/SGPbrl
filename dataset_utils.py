@@ -286,7 +286,8 @@ def reward_from_preference_transformer(
     batch_size: int = 256,
     use_diff: bool = False,
     label_mode: str = "last",
-    with_attn_weights: bool = False,  # Option for attention analysis.
+    with_attn_weights: bool = True,
+    percentile: float = 90.0,
 ):
     trajs = split_into_trajectories(
         dataset.observations,
@@ -447,6 +448,89 @@ def reward_from_preference_transformer(
 
     dataset.rewards = new_r.copy()
 
-    if with_attn_weights:
-        return dataset, (attn_weights, pts)
+    # # === Generate Guidance if attention is used ===
+    # if with_attn_weights:
+    #     guidance = np.zeros_like(dataset.observations)
+    #     filled_mask = np.zeros((data_size,), dtype=bool)
+
+    #     trj_start = 0
+    #     for trj_idx, traj in tqdm(enumerate(trajs), total=len(trajs), desc="guidance/trajectory"):
+    #         traj_len = len(traj)
+    #         if traj_len == 0:
+    #             trj_start += traj_len
+    #             continue
+
+    #         for pt_seq in np.array_split(np.arange(traj_len), max(1, traj_len // seq_len)):
+    #             # 10% 개수 계산 (최소 1개)
+    #             num_samples = max(1, int(len(pt_seq) * 0.1))
+
+    #             # 10% 개수만큼 uniform random sampling
+    #             sampled_indices = np.sort(
+    #                 np.random.choice(pt_seq, size=num_samples, replace=False)
+    #             )
+
+    #             # 마지막 timestep(종료 state) 반드시 포함
+    #             if pt_seq[-1] not in sampled_indices:
+    #                 sampled_indices = np.append(sampled_indices, pt_seq[-1])
+
+    #             prev = pt_seq[0]
+    #             for idx in sampled_indices:
+    #                 src_id = trj_start + int(idx)
+    #                 # prev ~ idx까지 guidance를 src_id state로 채움
+    #                 for t in pt_seq[pt_seq >= prev][pt_seq[pt_seq >= prev] <= idx]:
+    #                     t_global = trj_start + int(t)
+    #                     guidance[t_global] = dataset.observations[src_id]
+    #                     filled_mask[t_global] = True
+    #                 prev = idx + 1
+
+    #         trj_start += traj_len
+
+    #     dataset.guidance = guidance
+    #     dataset.guidance_mask = filled_mask
+        # 전체 데이터 길이만큼 guidance와 mask를 준비
+    #     guidance = np.zeros_like(dataset.observations)
+    #     filled_mask = np.zeros((data_size,), dtype=bool)
+
+    #     # trajectory별로 attention weight를 모아서 처리
+    #     trj_start = 0
+    #     for trj_idx, traj in tqdm(enumerate(trajs), total=len(trajs), desc="guidance/trajectory"):
+    #         traj_len = len(traj)
+    #         # 해당 trajectory에 대한 attention weight 모으기
+    #         trj_attn_weights = []
+    #         trj_pts = []
+    #         for batch_attn, batch_pts in zip(attn_weights, pts):
+    #             for aw, pt in zip(batch_attn, batch_pts):
+    #                 if trj_start <= pt[-1] < trj_start + traj_len:
+    #                     trj_attn_weights.append(aw)
+    #                     trj_pts.append(pt)
+    #         if not trj_attn_weights:
+    #             trj_start += traj_len
+    #             continue
+    #         trj_attn_weights = np.array(trj_attn_weights).reshape(-1, seq_len)
+    #         trj_pts = np.array(trj_pts).reshape(-1, seq_len)
+
+    #         # trajectory 내에서 top 10% timestep 구하기 (빈틈없이 구간별로 guidance 채우기)
+    #         for aw_seq, pt_seq in zip(trj_attn_weights, trj_pts):
+    #             threshold = np.percentile(aw_seq, percentile)
+    #             top_indices = np.where(aw_seq >= threshold)[0]
+    #             if len(top_indices) == 0:
+    #                 continue
+    #             top_indices = np.sort(top_indices)
+    #             # 마지막까지 포함
+    #             top_indices = np.append(top_indices, len(pt_seq) - 1)
+    #             prev = 0
+    #             for idx in top_indices:
+    #                 src_id = int(pt_seq[idx])
+    #                 # prev ~ idx까지 guidance를 src_id state로 채움
+    #                 for t in pt_seq[prev:idx+1]:
+    #                     t = int(t)
+    #                     if trj_start <= t < trj_start + traj_len:
+    #                         guidance[t] = dataset.observations[src_id]
+    #                         filled_mask[t] = True
+    #                 prev = idx + 1
+    #         trj_start += traj_len
+
+    #     dataset.guidance = guidance
+    #     dataset.guidance_mask = filled_mask
+    # print(dataset.guidance)
     return dataset

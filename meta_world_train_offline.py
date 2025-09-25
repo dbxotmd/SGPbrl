@@ -14,12 +14,13 @@ from tensorboardX import SummaryWriter
 import metaworld
 from metaworld.envs.mujoco.env_dict import ALL_V2_ENVIRONMENTS
 
+
 from typing import Any, Dict, Optional, Union
 
 import h5py
 import torch
 
-from dataset_utils import (
+from dataset_utils_meta import (
     RelabeledDataset,
     MetaworldDataset,
     metaworld_reward_from_preference,
@@ -60,7 +61,12 @@ flags.DEFINE_string(
 )
 flags.DEFINE_integer("max_episode_steps", 500, "max_episode_steps for rollout.")
 flags.DEFINE_string("dataset_path", "./data", "dataset path for demonstrations")
-
+flags.DEFINE_string('method', 'cosine_similarity', 'Reward shaping method')
+flags.DEFINE_float('shaping_weight', 1.0, 'Logging interval.')
+flags.DEFINE_integer('latent_dim', 16, 'latent dimension for CVAE')
+flags.DEFINE_integer('hidden_dim', 32, 'hidden dimension for CVAE')
+flags.DEFINE_integer('topkp', 10, 'top k percenetage for CVAE')
+flags.DEFINE_boolean('state_action', True, 'Use only state or state-action pair for reward shaping')
 config_flags.DEFINE_config_file(
     "config",
     "default.py",
@@ -170,7 +176,8 @@ def load_metaworld_dataset(file_path):
 def make_env_and_dataset(
     env_name: str, seed: int, dataset_path: str, max_episode_steps: int = 500
 ) -> Tuple[gym.Env, RelabeledDataset]:
-
+    
+   
     # Create Metaworld environment
     env_cls = ALL_V2_ENVIRONMENTS[env_name]
     env = env_cls()
@@ -184,7 +191,10 @@ def make_env_and_dataset(
     env.observation_space.seed(seed)
 
     # Load offline dataset
-    dataset = load_metaworld_dataset("./human_label/drawer-open_10000.npz")
+    if "drawer" in env_name:
+        dataset = load_metaworld_dataset("./human_label/drawer-open_10000.npz")
+    else:
+        dataset = load_metaworld_dataset("./human_label/plate-slide_10000.npz")
     dataset = MetaworldDataset(dataset)
 
     # Apply reward relabeling if using reward model
@@ -225,6 +235,7 @@ def initialize_model():
 
 
 def main(_):
+    cvae_path = "subgoal_vae_"+FLAGS.env_name+"_"+str(FLAGS.seed)+"_"+str(FLAGS.latent_dim)+"_"+str(FLAGS.hidden_dim)+"_"+str(FLAGS.topkp)+"_"+str(FLAGS.state_action)+".pkl"
     save_dir = os.path.join(
         FLAGS.save_dir,
         "tb",
@@ -236,6 +247,9 @@ def main(_):
         ),
         FLAGS.comment,
         str(FLAGS.seed),
+        f"{cvae_path}",
+        f"{FLAGS.method}",
+        str(FLAGS.shaping_weight),
         datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     )
 
@@ -255,6 +269,12 @@ def main(_):
         env.observation_space.sample()[np.newaxis],
         env.action_space.sample()[np.newaxis],
         max_steps=FLAGS.max_steps,
+        cvae_path = cvae_path,
+        method = FLAGS.method,
+        shaping_weight = FLAGS.shaping_weight,
+        vae_latent_dim = FLAGS.latent_dim,
+        vae_hidden_dim = FLAGS.hidden_dim,
+        state_action = FLAGS.state_action,
         **kwargs,
     )
 

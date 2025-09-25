@@ -54,18 +54,57 @@ def pref_accuracy(logits, target):
     target_class = jnp.argmax(target, axis=1)
     return jnp.mean(predicted_class == target_class)
 
+# def value_and_multi_grad(fun, n_outputs, argnums=0, has_aux=False):
+#     def select_output(index,flag):
+#         def wrapped(*args, **kwargs):
+#             if has_aux:
+#                 x, *aux, importance_weight_1, importance_weight_2 = fun(flag,*args, **kwargs)
+#                 if flag:
+#                     return importance_weight_1, importance_weight_2
+#                 return (x[index], *aux)
+#             else:
+#                 x, importance_weight_1, importance_weight_2 = fun(flag,*args, **kwargs)
+#                 if flag:
+#                     return importance_weight_1, importance_weight_2
+#                 return x[index]
+#         return wrapped
+
+#     grad_fns = tuple(
+#         jax.value_and_grad(select_output(i,False), argnums=argnums, has_aux=True)
+#         for i in range(n_outputs)
+#     )
+
+#     def multi_grad_fn(*args, **kwargs):
+#         grads = []
+#         values = []
+#         importance_weights_1 = []
+#         importance_weights_2 = []
+#         i=0
+#         for grad_fn in grad_fns:
+#             (value, *aux,), grad = grad_fn(*args, **kwargs)
+#             weight_1,weight_2= select_output(i,True)(*args, **kwargs)
+#             values.append(value)
+#             grads.append(grad)
+#             importance_weights_1.append(weight_1)
+#             importance_weights_2.append(weight_2)
+#             i+=1
+#             return (tuple(values), *aux), tuple(grads), importance_weights_1, importance_weights_2
+#     return multi_grad_fn
+
+
+#check attn weight
 def value_and_multi_grad(fun, n_outputs, argnums=0, has_aux=False):
     def select_output(index,flag):
         def wrapped(*args, **kwargs):
             if has_aux:
-                x, *aux, importance_weight_1, importance_weight_2 = fun(flag,*args, **kwargs)
+                x, *aux, importance_weight_1, importance_weight_2, trans_pred_1, trans_pred_2 = fun(flag,*args, **kwargs)
                 if flag:
-                    return importance_weight_1, importance_weight_2
+                    return importance_weight_1, importance_weight_2, trans_pred_1, trans_pred_2
                 return (x[index], *aux)
             else:
-                x, importance_weight_1, importance_weight_2 = fun(flag,*args, **kwargs)
+                x, importance_weight_1, importance_weight_2,  trans_pred_1, trans_pred_2 = fun(flag,*args, **kwargs)
                 if flag:
-                    return importance_weight_1, importance_weight_2
+                    return importance_weight_1, importance_weight_2,  trans_pred_1, trans_pred_2
                 return x[index]
         return wrapped
 
@@ -79,19 +118,22 @@ def value_and_multi_grad(fun, n_outputs, argnums=0, has_aux=False):
         values = []
         importance_weights_1 = []
         importance_weights_2 = []
+        trans_preds_1 = []
+        trans_preds_2 = []
         i=0
         for grad_fn in grad_fns:
             (value, *aux,), grad = grad_fn(*args, **kwargs)
-            weight_1,weight_2= select_output(i,True)(*args, **kwargs)
+            weight_1, weight_2, trans_pred_1, trans_pred_2 = select_output(i,True)(*args, **kwargs)
             values.append(value)
             grads.append(grad)
             importance_weights_1.append(weight_1)
             importance_weights_2.append(weight_2)
+            trans_preds_1.append(trans_pred_1)
+            trans_preds_2.append(trans_pred_2)
             i+=1
-            return (tuple(values), *aux), tuple(grads), importance_weights_1, importance_weights_2
+            return (tuple(values), *aux), tuple(grads), importance_weights_1, importance_weights_2, trans_preds_1, trans_preds_2
     return multi_grad_fn
 
-    return multi_grad_fn
 # def value_and_multi_grad(fun, n_outputs, argnums=0, has_aux=False):
 #     def select_output(index):
 #         def wrapped(*args, **kwargs):

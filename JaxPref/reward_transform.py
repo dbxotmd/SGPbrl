@@ -396,6 +396,8 @@ def load_queries_with_indices(
     batch["timestep_2"] = seq_timestep_2
     batch["start_indices"] = saved_indices[0]
     batch["start_indices_2"] = saved_indices[1]
+    batch["gt_rewards"] =seg_reward_1
+    batch["gt_rewards_2"] =seg_reward_2
 
     if balance:
         nonzero_condition = np.any(batch["labels"] != [0.5, 0.5], axis=1)

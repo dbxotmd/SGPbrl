@@ -1,6 +1,6 @@
 # SGPbrl
 
-## GUIDER: Attention-Guided Reward Shaping for Stable Offline Preference-based Reinforcement Learning
+## Subgoal-Guided Reward Shaping: Improving Preference-Based Offline Reinforcement Learning via Conditional VAEs
 
 We implement our code based on [Preference Transformer](https://github.com/csmile-1006/PreferenceTransformer).  
 Our model is built upon the **Preference Transformer** framework. Therefore, by running the Preference Transformer, you can obtain our results.
@@ -8,7 +8,7 @@ Our model is built upon the **Preference Transformer** framework. Therefore, by 
 ## Table of Contents
 - [Installation](#installation)
 - [How to Run the Code](#how-to-run-the-code)
-  - [GUIDER](#spot)
+  - [SPOT](#spot)
     - [Run Training Reward Model](#run-training-reward-model)
     - [Run IQL with Learned Reward Model & Reward Shifting](#run-iql-with-learned-reward-model--reward-shifting)
 - [Acknowledgments](#acknowledgments)

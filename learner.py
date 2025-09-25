@@ -12,10 +12,11 @@ import value_net
 from actor import update as awr_update_actor
 from common import Batch, InfoDict, Model, PRNGKey
 from critic import update_q, update_v
-from JaxPref.subgoal_vae_model import SubgoalVAE
-from JaxPref.subgoal_cvae_model import SubgoalCVAE
+# from JaxPref.subgoal_vae_model import SubgoalVAE
+# from JaxPref.subgoal_cvae_model import SubgoalCVAE
 from flax.training import train_state
 import pickle
+from functools import partial
 
 
 def target_update(critic: Model, target_critic: Model, tau: float) -> Model:
@@ -26,7 +27,8 @@ def target_update(critic: Model, target_critic: Model, tau: float) -> Model:
     return target_critic.replace(params=new_target_params)
 
 
-@jax.jit
+# @jax.jit
+@partial(jax.jit, static_argnames=["method", "state_action"])
 def _update_jit(
     rng: PRNGKey,
     actor: Model,
@@ -38,6 +40,9 @@ def _update_jit(
     tau: float,
     expectile: float,
     temperature: float,
+    method:str,
+    shaping_weight: float,
+    state_action: bool,
     vae_state,
 ) -> Tuple[PRNGKey, Model, Model, Model, Model, Model, InfoDict]:
 
@@ -47,7 +52,7 @@ def _update_jit(
         key, actor, target_critic, new_value, batch, temperature
     )
 
-    new_critic, critic_info = update_q(critic, new_value, batch, discount, vae_state)
+    new_critic, critic_info = update_q(critic, new_value, batch,discount,method,shaping_weight,state_action,vae_state)
 
     new_target_critic = target_update(new_critic, target_critic, tau)
 
@@ -77,6 +82,12 @@ class Learner(object):
         temperature: float = 0.1,
         dropout_rate: Optional[float] = None,
         max_steps: Optional[int] = None,
+        cvae_path:str = None,
+        method:str = "negative_distance",
+        shaping_weight: float =1.0,
+        vae_latent_dim:int = 16,
+        vae_hidden_dim: int = 32,
+        state_action: bool = True,
         opt_decay_schedule: str = "cosine",
     ):
         """
@@ -86,17 +97,32 @@ class Learner(object):
         def load_vae_model(filename, observation_dim, action_dim):
             with open(filename, "rb") as f:
                 loaded_params = pickle.load(f)
+            if self.state_action:
+                # Initialize a fresh VAE model to get its parameter structure
+                from JaxPref.subgoal_cvae_model_state_action import SubgoalCVAE
+                vae = SubgoalCVAE(
+                    self.vae_latent_dim, observation_dim, action_dim, self.vae_hidden_dim
+                )
+                # Create a dummy input to initialize the model parameters
+                dummy_state = jnp.ones((1, observation_dim))
+                dummy_action = jnp.ones((1, action_dim))
+                subgoal_state = jnp.ones((1, observation_dim))
+                subgoal_action = jnp.ones((1, observation_dim))
+                rng = jax.random.PRNGKey(0)
+                params = vae.init(rng, dummy_state, dummy_action, subgoal_state,subgoal_action)
 
-            # Initialize a fresh VAE model to get its parameter structure
-            vae = SubgoalCVAE(
-                self.vae_latent_dim, observation_dim, action_dim, self.vae_hidden_dim
-            )
-            # Create a dummy input to initialize the model parameters
-            dummy_state = jnp.ones((1, observation_dim))
-            dummy_action = jnp.ones((1, action_dim))
-            subgoal_state = jnp.ones((1, observation_dim))
-            rng = jax.random.PRNGKey(0)
-            params = vae.init(rng, dummy_state, dummy_action, subgoal_state)
+            else:
+                from JaxPref.subgoal_cvae_model import SubgoalCVAE
+                # Initialize a fresh VAE model to get its parameter structure
+                vae = SubgoalCVAE(
+                    self.vae_latent_dim, observation_dim, action_dim, self.vae_hidden_dim
+                )
+                # Create a dummy input to initialize the model parameters
+                dummy_state = jnp.ones((1, observation_dim))
+                dummy_action = jnp.ones((1, action_dim))
+                subgoal_state = jnp.ones((1, observation_dim))
+                rng = jax.random.PRNGKey(0)
+                params = vae.init(rng, dummy_state, dummy_action, subgoal_state)
 
             # Create a dummy optimizer
             tx = optax.adam(learning_rate=1e-4)
@@ -112,6 +138,9 @@ class Learner(object):
         self.tau = tau
         self.discount = discount
         self.temperature = temperature
+        self.method = method
+        self.shaping_weight = shaping_weight
+        self.state_action = state_action
 
         rng = jax.random.PRNGKey(seed)
         rng, actor_key, critic_key, value_key = jax.random.split(rng, 4)
@@ -160,15 +189,17 @@ class Learner(object):
         self.value = value
         self.target_critic = target_critic
         self.rng = rng
-        self.vae_latent_dim = 16
-        self.vae_hidden_dim = [32, 64, 32]
+        self.vae_latent_dim = vae_latent_dim
+        if vae_hidden_dim == 32:
+            self.vae_hidden_dim = [32, 64, 32]
+        elif vae_hidden_dim == 64:
+            self.vae_hidden_dim = [64, 128, 64]
+        elif vae_hidden_dim == 128:
+            self.vae_hidden_dim = [128, 256, 128]
+        elif vae_hidden_dim == 750:
+            self.vae_hidden_dim = [750,750]   
         self.vae_state = load_vae_model(
-            "subgoal_vae_walker2d-medium-replay-v2_q_10_0.pkl",
-            # "subgoal_vae_hopper-medium-expert-v2_1234.pkl",
-            # "subgoal_vae_Lift_ph_42.pkl",
-            # "subgoal_vae_walker2d-medium-replay-v2_1234.pkl",
-            # "subgoal_vae_walker2d-medium-expert-v2_9876.pkl",
-            # "subgoal_vae_walker2d-medium-replay-v2_cos.pkl",
+            cvae_path,
             observation_dim,
             action_dim,
         )
@@ -197,6 +228,9 @@ class Learner(object):
                 self.tau,
                 self.expectile,
                 self.temperature,
+                self.method,
+                self.shaping_weight,
+                self.state_action,
                 self.vae_state,
             )
         )
